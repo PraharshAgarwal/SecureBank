@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Create Account — SecureBank{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-layout">
+        <!-- Branding Side -->
+        <div class="auth-brand">
+            <div class="auth-brand-content">
+                <div class="auth-brand-logo">Secure<span>Bank</span></div>
+                <h2 class="auth-brand-title">Open Your Account<br>in Seconds</h2>
+                <p class="auth-brand-desc">Join thousands of users who trust SecureBank for everyday banking, savings,
+                    and seamless fund transfers.</p>
+                <div class="auth-brand-features">
+                    <div class="auth-feature">
+                        <div class="auth-feature-icon">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                                viewBox="0 0 24 24">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                            </svg>
+                        </div>
+                        <span>Secure & Private</span>
+                    </div>
+                    <div class="auth-feature">
+                        <div class="auth-feature-icon">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                                viewBox="0 0 24 24">
+                                <rect x="3" y="3" width="7" height="7" rx="1" />
+                                <rect x="14" y="3" width="7" height="7" rx="1" />
+                                <rect x="3" y="14" width="7" height="7" rx="1" />
+                                <rect x="14" y="14" width="7" height="7" rx="1" />
+                            </svg>
+                        </div>
+                        <span>Multiple Accounts</span>
+                    </div>
+                    <div class="auth-feature">
+                        <div class="auth-feature-icon">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                                viewBox="0 0 24 24">
+                                <path d="M9 12l2 2 4-4" />
+                                <circle cx="12" cy="12" r="10" />
+                            </svg>
+                        </div>
+                        <span>Full Transaction History</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Side -->
+        <div class="auth-form-side">
+            <div class="auth-card">
+                <h1>Create your account</h1>
+                <p class="auth-subtitle">Get started with SecureBank today</p>
+
+                <form method="POST" action="{{ url_for('signup') }}" class="auth-form" id="signupForm">
+                    <div class="form-group">
+                        <label for="full_name">Full name</label>
+                        <input type="text" id="full_name" name="full_name" required autofocus minlength="2"
+                            pattern="[A-Za-z\s\.]+" title="Name can only contain letters, spaces, and dots"
+                            placeholder="Enter your full name" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email address</label>
+                        <input type="email" id="email" name="email" required placeholder="you@example.com"
+                            class="form-control">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="phone">Phone <span style="color:var(--text-dim);">(optional)</span></label>
+                            <input type="tel" id="phone" name="phone" pattern="[0-9]{10}" maxlength="10"
+                                title="Enter a 10-digit mobile number" placeholder="9876543210" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" required minlength="8"
+                                placeholder="Min 8 characters" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm password</label>
+                        <input type="password" id="confirm_password" name="confirm_password" required minlength="8"
+                            placeholder="Re-enter password" class="form-control">
+                    </div>
+                    <div id="signup-errors"
+                        style="display:none; font-size:13px; color:var(--error); background:var(--error-bg); padding:10px 14px; border-radius:var(--radius-sm);">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Create account</button>
+                </form>
+
+                <div class="auth-footer">
+                    Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('signupForm').addEventListener('submit', function (e) {
+        var errors = [];
+        var name = document.getElementById('full_name').value.trim();
+        var email = document.getElementById('email').value.trim();
+        var phone = document.getElementById('phone').value.trim();
+        var pass = document.getElementById('password').value;
+        var confirm = document.getElementById('confirm_password').value;
+
+        if (name.length < 2) errors.push('Name must be at least 2 characters.');
+        if (!/^[A-Za-z\s\.]+$/.test(name)) errors.push('Name can only contain letters, spaces, and dots.');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) errors.push('Enter a valid email address.');
+        if (phone && !/^\d{10}$/.test(phone)) errors.push('Phone must be exactly 10 digits.');
+        if (pass.length < 8) errors.push('Password must be at least 8 characters.');
+        if (!/[A-Z]/.test(pass)) errors.push('Password needs an uppercase letter.');
+        if (!/[a-z]/.test(pass)) errors.push('Password needs a lowercase letter.');
+        if (!/[0-9]/.test(pass)) errors.push('Password needs a digit.');
+        if (!/[^A-Za-z0-9]/.test(pass)) errors.push('Password needs a special character.');
+        if (pass !== confirm) errors.push('Passwords do not match.');
+
+        var box = document.getElementById('signup-errors');
+        if (errors.length) {
+            e.preventDefault();
+            box.style.display = 'block';
+            box.innerHTML = errors.join('<br>');
+        } else {
+            box.style.display = 'none';
+        }
+    });
+</script>
+{% endblock %}

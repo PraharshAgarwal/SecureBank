@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Profile — SecureBank{% endblock %}
+
+{% block content %}
+{% include "partials/top_nav.html" %}
+
+<!-- Profile Banner -->
+<div class="page-banner">
+    <div class="page-banner-inner">
+        <div class="profile-banner-left">
+            <div class="profile-avatar-large">{{ customer['full_name'][0] if customer else 'U' }}</div>
+            <div>
+                <h1 class="page-banner-title">{{ customer['full_name'] if customer else 'User' }}</h1>
+                <p class="page-banner-desc">Member since {{ customer['created_at'].strftime('%B %Y') if customer and
+                    customer['created_at'] else 'N/A' }}</p>
+            </div>
+        </div>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-welcome-outline">Back to Dashboard</a>
+    </div>
+</div>
+
+<div class="page-shell">
+    <div class="profile-grid">
+        <!-- Personal Info -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Personal Information</h2>
+                <div class="card-header-icon chi-blue">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                </div>
+            </div>
+            <div class="detail-row">
+                <span class="label">Full Name</span>
+                <span class="value">{{ customer['full_name'] if customer else '—' }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Email</span>
+                <span class="value">{{ customer['email'] if customer else '—' }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Phone</span>
+                <span class="value">{{ customer['phone'] if customer and customer['phone'] else 'Not provided' }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Customer Since</span>
+                <span class="value">{{ customer['created_at'].strftime('%d %b %Y') if customer and
+                    customer['created_at'] else '—' }}</span>
+            </div>
+        </div>
+
+        <!-- Primary Account -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Primary Account</h2>
+                <div class="card-header-icon chi-green">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="1" y="4" width="22" height="16" rx="2" />
+                        <path d="M1 10h22" />
+                    </svg>
+                </div>
+            </div>
+            {% if primary_account %}
+            <div class="detail-row">
+                <span class="label">Account Type</span>
+                <span class="value">{{ primary_account['account_type'] }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Account Number</span>
+                <span class="value value-with-action">
+                    <span class="mono" id="acct-num" data-full="{{ primary_account['account_number'] }}">
+                        •••• {{ primary_account['account_number'][-4:] }}
+                    </span>
+                    <button type="button" class="action-btn" id="toggle-acct" onclick="toggleField('acct-num', this)"
+                        aria-label="Toggle visibility">Show</button>
+                    <button type="button" class="action-btn" data-copy="{{ primary_account.account_number }}"
+                        aria-label="Copy">Copy</button>
+                </span>
+            </div>
+            <div class="detail-row">
+                <span class="label">IFSC Code</span>
+                <span class="value mono">{{ primary_account['ifsc_code'] if primary_account['ifsc_code'] else '—'
+                    }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Branch</span>
+                <span class="value">{{ primary_account['branch_name'] if primary_account['branch_name'] else '—'
+                    }}</span>
+            </div>
+            {% else %}
+            <div class="empty-state">No active accounts.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if accounts and accounts|length > 1 %}
+    <div class="card" style="margin-top:16px;">
+        <div class="card-header">
+            <h2>All Linked Accounts</h2>
+            <div class="card-header-icon chi-purple">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Account Number</th>
+                        <th>IFSC</th>
+                        <th>Branch</th>
+                        <th>Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for acc in accounts %}
+                    <tr>
+                        <td>{{ acc['account_type'] }}</td>
+                        <td class="mono">{{ acc['account_number'] if acc['account_number'] else '—' }}</td>
+                        <td class="mono">{{ acc['ifsc_code'] if acc['ifsc_code'] else '—' }}</td>
+                        <td>{{ acc['branch_name'] if acc['branch_name'] else '—' }}</td>
+                        <td class="mono">₹{{ "%.2f"|format(acc['balance']) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function toggleField(id, btn) {
+        var el = document.getElementById(id);
+        var full = el.getAttribute('data-full');
+        if (el.textContent.indexOf('••••') !== -1) {
+            el.textContent = full;
+            btn.textContent = 'Hide';
+        } else {
+            el.textContent = '•••• ' + full.slice(-4);
+            btn.textContent = 'Show';
+        }
+    }
+    document.querySelectorAll('[data-copy]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var text = this.getAttribute('data-copy');
+            navigator.clipboard.writeText(text).then(function () {
+                btn.textContent = 'Copied!';
+                setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SecureBank{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <!-- Per-tab session isolation: each browser tab requires its own login -->
+    <script>
+        (function () {
+            var publicPaths = ['/login', '/signup', '/'];
+            var currentPath = window.location.pathname;
+
+            // Public pages: clear any stale tab token so logout works properly
+            if (publicPaths.indexOf(currentPath) !== -1) {
+                sessionStorage.removeItem('securebank_tab_token');
+                return;
+            }
+
+            // Protected page: check for token in URL (arrives via login/signup redirect)
+            var params = new URLSearchParams(window.location.search);
+            var urlToken = params.get('tab_token');
+            if (urlToken) {
+                sessionStorage.setItem('securebank_tab_token', urlToken);
+                // Remove token from address bar for cleanliness
+                params.delete('tab_token');
+                var cleanUrl = currentPath + (params.toString() ? '?' + params.toString() : '');
+                window.history.replaceState({}, '', cleanUrl);
+                return;
+            }
+
+            // No token in URL and none in sessionStorage → not authenticated in this tab
+            if (!sessionStorage.getItem('securebank_tab_token')) {
+                window.location.replace('/login');
+            }
+        })();
+    </script>
+</head>
+
+<body>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-messages">
+        {% for category, message in messages %}
+        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</body>
+
+</html>

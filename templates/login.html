@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Sign In — SecureBank{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-layout">
+        <!-- Branding Side -->
+        <div class="auth-brand">
+            <div class="auth-brand-content">
+                <div class="auth-brand-logo">Secure<span>Bank</span></div>
+                <h2 class="auth-brand-title">Modern Banking,<br>Built on Trust</h2>
+                <p class="auth-brand-desc">Manage your accounts, transfer funds instantly, and track every transaction —
+                    all from one secure platform.</p>
+                <div class="auth-brand-features">
+                    <div class="auth-feature">
+                        <div class="auth-feature-icon">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                                viewBox="0 0 24 24">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                            </svg>
+                        </div>
+                        <span>Bank-grade Security</span>
+                    </div>
+                    <div class="auth-feature">
+                        <div class="auth-feature-icon">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                                viewBox="0 0 24 24">
+                                <path d="M9 12l2 2 4-4" />
+                                <circle cx="12" cy="12" r="10" />
+                            </svg>
+                        </div>
+                        <span>Instant Transfers</span>
+                    </div>
+                    <div class="auth-feature">
+                        <div class="auth-feature-icon">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                                viewBox="0 0 24 24">
+                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+                            </svg>
+                        </div>
+                        <span>24/7 Account Access</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Side -->
+        <div class="auth-form-side">
+            <div class="auth-card">
+                <h1>Welcome back</h1>
+                <p class="auth-subtitle">Sign in to your account to continue</p>
+
+                <form method="POST" action="{{ url_for('login') }}" class="auth-form">
+                    <div class="form-group">
+                        <label for="email">Email address</label>
+                        <input type="email" id="email" name="email" required autofocus placeholder="you@example.com"
+                            class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required placeholder="Enter your password"
+                            class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Sign in</button>
+                </form>
+
+                <div class="auth-footer">
+                    Don't have an account? <a href="{{ url_for('signup') }}">Create one</a>
+                </div>
+
+                <div class="demo-credentials">
+                    <p><strong>Demo credentials</strong></p>
+                    <p>Email: john.doe@email.com</p>
+                    <p>Password: SecureBank@123</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

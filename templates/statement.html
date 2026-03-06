@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Bank Statement — SecureBank{% endblock %}
+
+{% block content %}
+{% include "partials/top_nav.html" %}
+
+<!-- Statement Banner -->
+<div class="page-banner">
+    <div class="page-banner-inner">
+        <div>
+            <h1 class="page-title">Bank Statement</h1>
+            <p class="page-subtitle">{{ account.account_type }} Account · {{ account.account_number }}</p>
+        </div>
+        <div class="page-banner-meta">
+            <span class="banner-badge">Balance: ₹{{ "%.2f"|format(account.balance) }}</span>
+            <span class="banner-badge">IFSC: {{ account.ifsc_code }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="page-shell">
+    <!-- Cursor Info Card -->
+    <div class="card" style="margin-bottom: 20px;">
+        <div class="card-header">
+            <h2>📋 Paginated Statement <span class="db-badge">CURSOR-BASED</span></h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span class="text-dim" style="font-size:13px;">
+                    {% if total_records > 0 %}
+                    Showing {{ ((page - 1) * 10) + 1 }}–{{ [page * 10, total_records]|min }} of {{ total_records }}
+                    {% else %}
+                    No transactions found
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        {% if transactions %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Counterparty</th>
+                        <th>Direction</th>
+                        <th style="text-align:right">Amount (₹)</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for txn in transactions %}
+                    <tr>
+                        <td class="text-dim">{{ txn.row_num }}</td>
+                        <td>{{ txn.transaction_date.strftime('%d %b %Y, %I:%M %p') if txn.transaction_date else '—' }}
+                        </td>
+                        <td>{{ txn.transaction_type }}</td>
+                        <td>{{ txn.counterparty or '—' }}</td>
+                        <td>
+                            <span
+                                class="direction-badge {{ 'direction-debit' if txn.direction == 'DEBIT' else 'direction-credit' }}">
+                                {{ txn.direction }}
+                            </span>
+                        </td>
+                        <td
+                            style="text-align:right;font-weight:600;{{ 'color:var(--error)' if txn.direction == 'DEBIT' else 'color:var(--success)' }}">
+                            {{ '−' if txn.direction == 'DEBIT' else '+' }}{{ "%.2f"|format(txn.amount) }}
+                        </td>
+                        <td>
+                            <span
+                                class="status-dot {{ 'status-success' if txn.status == 'Success' else 'status-failed' }}"></span>
+                            {{ txn.status }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        {% if total_pages > 1 %}
+        <div class="pagination">
+            {% if page > 1 %}
+            <a href="{{ url_for('statement', account_id=account.account_id, page=page-1) }}"
+                class="btn btn-secondary btn-sm">← Previous</a>
+            {% else %}
+            <span class="btn btn-secondary btn-sm" style="opacity:0.4;pointer-events:none;">← Previous</span>
+            {% endif %}
+
+            <div class="pagination-pages">
+                {% for p in range(1, total_pages + 1) %}
+                <a href="{{ url_for('statement', account_id=account.account_id, page=p) }}"
+                    class="pagination-page {{ 'pagination-active' if p == page else '' }}">{{ p }}</a>
+                {% endfor %}
+            </div>
+
+            {% if page < total_pages %} <a href="{{ url_for('statement', account_id=account.account_id, page=page+1) }}"
+                class="btn btn-secondary btn-sm">Next →</a>
+                {% else %}
+                <span class="btn btn-secondary btn-sm" style="opacity:0.4;pointer-events:none;">Next →</span>
+                {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">No transactions yet for this account.</div>
+        {% endif %}
+    </div>
+
+    <div class="card" style="margin-bottom: 20px;">
+        <div class="card-header">
+            <h2>ℹ️ How This Works</h2>
+        </div>
+        <div class="db-concept-box">
+            <p><strong>DBMS Concept: Database Cursors</strong></p>
+            <p>This statement is generated using a PL/pgSQL stored function (<code>GetPaginatedStatement</code>) that
+                demonstrates the full cursor lifecycle:</p>
+            <ul>
+                <li><strong>DECLARE CURSOR</strong> — defines the result set with multi-table JOINs</li>
+                <li><strong>OPEN</strong> — begins cursor traversal</li>
+                <li><strong>MOVE FORWARD</strong> — skips to the requested page offset</li>
+                <li><strong>FETCH</strong> — retrieves one row at a time in a loop</li>
+                <li><strong>CLOSE</strong> — releases cursor resources</li>
+            </ul>
+        </div>
+    </div>
+
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary" style="margin-bottom:32px;">← Back to Dashboard</a>
+</div>
+{% endblock %}

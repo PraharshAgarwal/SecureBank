@@ -1,0 +1,20 @@
+<nav class="navbar">
+    <div class="nav-left">
+        <span class="nav-logo"><span>Secure</span>Bank</span>
+    </div>
+    <div class="nav-links">
+        <a href="{{ url_for('dashboard') }}"
+            class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="{{ url_for('transfer') }}"
+            class="nav-link {% if request.endpoint == 'transfer' %}active{% endif %}">Transfers</a>
+        <a href="{{ url_for('profile') }}"
+            class="nav-link {% if request.endpoint == 'profile' %}active{% endif %}">Profile</a>
+    </div>
+    <div class="nav-right">
+        <div class="nav-user">
+            <div class="nav-user-avatar">{{ session.user_name[0] if session.user_name else 'U' }}</div>
+            <span class="nav-user-name">{{ (session.user_name.split()[0]) if session.user_name else 'User' }}</span>
+        </div>
+        <a href="{{ url_for('logout') }}" class="nav-logout">Log out</a>
+    </div>
+</nav>
