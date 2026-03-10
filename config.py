@@ -5,11 +5,11 @@ All database credentials and app settings in one place.
 
 import os
 
-# Database Configuration (PostgreSQL)
+# Database Configuration (PostgreSQL — Supabase Cloud, Mumbai ap-south-1)
 DB_CONFIG = {
-    'host': os.environ.get('DB_HOST', 'localhost'),
-    'user': os.environ.get('DB_USER', 'postgres'),
-    'password': os.environ.get('DB_PASSWORD', '1234'),
+    'host': os.environ.get('DB_HOST', 'aws-1-ap-south-1.pooler.supabase.com'),
+    'user': os.environ.get('DB_USER', 'postgres.zzigmvwzdfcwcpjnvruu'),
+    'password': os.environ.get('DB_PASSWORD', 'Prah_securebank'),
     'database': os.environ.get('DB_NAME', 'securebank'),
     'port': int(os.environ.get('DB_PORT', 5432))
 }
