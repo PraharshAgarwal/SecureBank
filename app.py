@@ -4,7 +4,7 @@ BCSE302L Database Management Systems Project
 Demonstrates: JOIN operations, ACID transactions, Stored Functions, Indexing, Triggers
 """
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response, Response
 import psycopg2
 from psycopg2 import Error
 from psycopg2.extras import RealDictCursor
@@ -500,70 +500,6 @@ def transfer():
         return redirect(url_for('dashboard'))
 
 
-@app.route('/history/<int:account_id>')
-@login_required
-def history(account_id):
-    """
-    Transaction History Page - Demonstrates: Indexing (B-tree on timestamp)
-    Fast retrieval using indexed timestamp column
-    """
-    conn = get_db_connection()
-    if not conn:
-        flash('Database connection error.', 'error')
-        return redirect(url_for('dashboard'))
-    
-    try:
-        # Verify account belongs to user
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        verify_query = "SELECT customer_id FROM Accounts WHERE account_id = %s"
-        cursor.execute(verify_query, (account_id,))
-        account = cursor.fetchone()
-        
-        if not account or account['customer_id'] != session['user_id']:
-            flash('Access denied. Account not found.', 'error')
-            cursor.close()
-            conn.close()
-            return redirect(url_for('dashboard'))
-        
-        # Get account details
-        account_query = """
-            SELECT account_id, account_type, balance, account_number
-            FROM Accounts
-            WHERE account_id = %s
-        """
-        cursor.execute(account_query, (account_id,))
-        account_info = cursor.fetchone()
-        
-        # Get transaction history (uses indexed timestamp for fast retrieval)
-        history_query = """
-            SELECT 
-                transaction_id,
-                from_account_id,
-                to_account_id,
-                transaction_type,
-                amount,
-                status,
-                transaction_timestamp
-            FROM TransactionHistory
-            WHERE from_account_id = %s OR to_account_id = %s
-            ORDER BY transaction_timestamp DESC
-            LIMIT 50
-        """
-        cursor.execute(history_query, (account_id, account_id))
-        transactions = cursor.fetchall()
-        
-        cursor.close()
-        conn.close()
-        
-        return render_template('history.html', 
-                             account=account_info,
-                             transactions=transactions)
-    except Error as e:
-        flash(f'Error loading history: {str(e)}', 'error')
-        if conn:
-            conn.close()
-        return redirect(url_for('dashboard'))
-
 
 @app.route('/profile')
 @login_required
@@ -696,6 +632,291 @@ def statement(account_id):
         if conn:
             conn.close()
         return redirect(url_for('dashboard'))
+
+
+@app.route('/statement/<int:account_id>/pdf')
+@login_required
+def statement_pdf(account_id):
+    """Generate and download a PDF bank statement."""
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+
+    conn = get_db_connection()
+    if not conn:
+        flash('Database connection error.', 'error')
+        return redirect(url_for('statement', account_id=account_id))
+
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Verify account belongs to user
+        cursor.execute("SELECT customer_id FROM Accounts WHERE account_id = %s", (account_id,))
+        acc_check = cursor.fetchone()
+        if not acc_check or acc_check['customer_id'] != session['user_id']:
+            flash('Access denied.', 'error')
+            cursor.close()
+            conn.close()
+            return redirect(url_for('dashboard'))
+
+        # Customer info
+        cursor.execute(
+            "SELECT full_name, email, phone, created_at FROM Customers WHERE customer_id = %s",
+            (session['user_id'],),
+        )
+        customer = cursor.fetchone()
+
+        # Account info
+        cursor.execute(
+            """SELECT account_id, account_type, balance, account_number, ifsc_code, branch_name
+               FROM Accounts WHERE account_id = %s""",
+            (account_id,),
+        )
+        account = cursor.fetchone()
+
+        # All transactions (no pagination for PDF — fetch all)
+        cursor.execute(
+            "SELECT * FROM GetPaginatedStatement(%s, %s, %s)",
+            (account_id, 1, 1000),
+        )
+        transactions = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        # --- Build PDF ---
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer, pagesize=A4,
+            leftMargin=20*mm, rightMargin=20*mm,
+            topMargin=15*mm, bottomMargin=15*mm,
+        )
+
+        styles = getSampleStyleSheet()
+        elements = []
+
+        # Custom styles
+        title_style = ParagraphStyle('BankTitle', parent=styles['Title'],
+            fontSize=24, textColor=colors.HexColor('#1E293B'), spaceAfter=2,
+            alignment=TA_LEFT)
+        subtitle_style = ParagraphStyle('BankSub', parent=styles['Normal'],
+            fontSize=10, textColor=colors.HexColor('#64748B'), spaceAfter=4)
+        heading_style = ParagraphStyle('SectionHead', parent=styles['Heading2'],
+            fontSize=11, textColor=colors.HexColor('#1E293B'), spaceBefore=10, spaceAfter=6)
+        normal_style = ParagraphStyle('NormalText', parent=styles['Normal'],
+            fontSize=9, textColor=colors.HexColor('#334155'), leading=14)
+        small_style = ParagraphStyle('SmallText', parent=styles['Normal'],
+            fontSize=8, textColor=colors.HexColor('#94A3B8'))
+
+        blue = '#4F46E5'
+        dark = '#1E293B'
+
+        # -- Colored Logo Header --
+        logo_html = (
+            f'<font name="Helvetica-Bold" size="24" color="{blue}">Secure</font>'
+            f'<font name="Helvetica-Bold" size="24" color="{dark}">Bank</font>'
+        )
+        elements.append(Paragraph(logo_html, ParagraphStyle(
+            'Logo', parent=styles['Normal'], fontSize=24, leading=28, spaceAfter=2)))
+        elements.append(Paragraph('Account Statement', subtitle_style))
+        elements.append(Paragraph(
+            f'Generated on {datetime.now().strftime("%d %B %Y, %I:%M %p")}',
+            small_style
+        ))
+        elements.append(Spacer(1, 3*mm))
+        elements.append(HRFlowable(width='100%', thickness=1.2,
+            color=colors.HexColor(blue)))
+        elements.append(Spacer(1, 5*mm))
+
+        # -- Customer & Account Details (formatted cards) --
+        cust_name = customer['full_name'] if customer else 'N/A'
+        cust_email = customer['email'] if customer else 'N/A'
+        cust_phone = customer['phone'] if customer and customer['phone'] else 'N/A'
+        member_since = customer['created_at'].strftime('%d %b %Y') if customer and customer['created_at'] else 'N/A'
+
+        acct_num = account['account_number'] if account else 'N/A'
+        acct_type = account['account_type'] if account else 'N/A'
+        ifsc = account['ifsc_code'] if account else 'N/A'
+        branch = account.get('branch_name', 'N/A') or 'N/A'
+        balance = f"Rs. {account['balance']:,.2f}" if account else 'N/A'
+
+        label_s = ParagraphStyle('Lbl', parent=normal_style,
+            textColor=colors.HexColor('#94A3B8'), fontSize=7.5,
+            spaceBefore=0, spaceAfter=0, leading=10)
+        value_s = ParagraphStyle('Val', parent=normal_style,
+            fontSize=9, textColor=colors.HexColor('#1E293B'),
+            spaceBefore=0, spaceAfter=3, leading=12)
+
+        def info_cell(label, value):
+            return [Paragraph(label, label_s), Paragraph(f'<b>{value}</b>', value_s)]
+
+        left_cells = [
+            info_cell('CUSTOMER NAME', cust_name),
+            info_cell('EMAIL ADDRESS', cust_email),
+            info_cell('PHONE NUMBER', cust_phone),
+            info_cell('MEMBER SINCE', member_since),
+        ]
+        right_cells = [
+            info_cell('ACCOUNT NUMBER', acct_num),
+            info_cell('ACCOUNT TYPE', acct_type),
+            info_cell('IFSC CODE', ifsc),
+            info_cell('BRANCH', branch),
+        ]
+
+        # Build rows: each row has left-label, left-value, spacer, right-label, right-value
+        info_rows = []
+        for i in range(len(left_cells)):
+            info_rows.append([
+                left_cells[i][0], left_cells[i][1],
+                '', # spacer column
+                right_cells[i][0], right_cells[i][1],
+            ])
+        # Add balance row
+        info_rows.append([
+            '', '',
+            '',
+            Paragraph('CURRENT BALANCE', label_s),
+            Paragraph(f'<b>{balance}</b>', ParagraphStyle('BalVal', parent=value_s,
+                fontSize=11, textColor=colors.HexColor(blue))),
+        ])
+
+        half_w = (doc.width - 8*mm) / 2
+        info_table = Table(info_rows, colWidths=[half_w*0.35, half_w*0.65, 8*mm, half_w*0.35, half_w*0.65])
+        info_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            # Left card border
+            ('BOX', (0, 0), (1, len(info_rows)-2), 0.5, colors.HexColor('#E2E8F0')),
+            ('BACKGROUND', (0, 0), (1, len(info_rows)-2), colors.HexColor('#F8FAFC')),
+            ('ROUNDEDCORNERS', [4, 4, 4, 4]),
+            # Right card border
+            ('BOX', (3, 0), (4, -1), 0.5, colors.HexColor('#E2E8F0')),
+            ('BACKGROUND', (3, 0), (4, -1), colors.HexColor('#F8FAFC')),
+        ]))
+        elements.append(info_table)
+        elements.append(Spacer(1, 5*mm))
+        elements.append(HRFlowable(width='100%', thickness=0.5,
+            color=colors.HexColor('#E2E8F0')))
+        elements.append(Spacer(1, 4*mm))
+
+        # -- Transaction Table --
+        elements.append(Paragraph(
+            f'Transaction History  ({len(transactions)} records)',
+            heading_style,
+        ))
+
+        if transactions:
+            header = ['#', 'Date', 'Type', 'Counterparty', 'Direction', 'Amount (Rs.)', 'Status']
+            table_data = [header]
+
+            for txn in transactions:
+                date_str = txn['transaction_date'].strftime('%d %b %Y') if txn['transaction_date'] else '\u2014'
+                amt = f"{txn['amount']:,.2f}"
+                sign = '\u2212' if txn['direction'] == 'DEBIT' else '+'
+                table_data.append([
+                    str(txn['row_num']),
+                    date_str,
+                    txn['transaction_type'] or '\u2014',
+                    txn['counterparty'] or '\u2014',
+                    txn['direction'] or '\u2014',
+                    f"{sign}{amt}",
+                    txn['status'] or '\u2014',
+                ])
+
+            # Adjusted column widths: #(18) Date(68) Type(58) Counterparty(108) Dir(48) Amount(72) Status(48) = ~420
+            page_w = doc.width
+            col_widths = [
+                page_w * 0.04,   # #
+                page_w * 0.14,   # Date
+                page_w * 0.12,   # Type
+                page_w * 0.28,   # Counterparty (widest)
+                page_w * 0.10,   # Direction
+                page_w * 0.18,   # Amount
+                page_w * 0.14,   # Status
+            ]
+            t = Table(table_data, colWidths=col_widths, repeatRows=1)
+
+            debit_color = colors.HexColor('#DC2626')
+            credit_color = colors.HexColor('#16A34A')
+            header_bg = colors.HexColor('#F1F5F9')
+            border_color = colors.HexColor('#E2E8F0')
+            stripe_color = colors.HexColor('#FAFBFD')
+
+            style_cmds = [
+                ('BACKGROUND', (0, 0), (-1, 0), header_bg),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#475569')),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 7.5),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('ALIGN', (0, 0), (0, -1), 'CENTER'),   # # column
+                ('ALIGN', (5, 0), (5, -1), 'RIGHT'),     # Amount column
+                ('ALIGN', (4, 0), (4, -1), 'CENTER'),    # Direction column
+                ('ALIGN', (6, 0), (6, -1), 'CENTER'),    # Status column
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 0.4, border_color),
+                ('LINEBELOW', (0, 0), (-1, 0), 1, colors.HexColor('#CBD5E1')),
+            ]
+
+            # Stripe alternate rows & color amounts
+            for i in range(1, len(table_data)):
+                if i % 2 == 0:
+                    style_cmds.append(('BACKGROUND', (0, i), (-1, i), stripe_color))
+                if table_data[i][5].startswith('\u2212'):
+                    style_cmds.append(('TEXTCOLOR', (5, i), (5, i), debit_color))
+                    style_cmds.append(('FONTNAME', (5, i), (5, i), 'Helvetica-Bold'))
+                else:
+                    style_cmds.append(('TEXTCOLOR', (5, i), (5, i), credit_color))
+                    style_cmds.append(('FONTNAME', (5, i), (5, i), 'Helvetica-Bold'))
+
+            t.setStyle(TableStyle(style_cmds))
+            elements.append(t)
+        else:
+            elements.append(Paragraph('No transactions found.', normal_style))
+
+        # -- Footer --
+        elements.append(Spacer(1, 8*mm))
+        elements.append(HRFlowable(width='100%', thickness=0.5,
+            color=colors.HexColor('#E2E8F0')))
+        elements.append(Spacer(1, 2*mm))
+        footer_logo = (
+            f'<font name="Helvetica-Bold" color="{blue}">Secure</font>'
+            f'<font name="Helvetica-Bold" color="{dark}">Bank</font>'
+            f'  <font color="#94A3B8">|</font>  '
+            f'<font color="#94A3B8">System-generated statement  |  support@securebank.com</font>'
+        )
+        elements.append(Paragraph(
+            footer_logo,
+            ParagraphStyle('Footer', parent=small_style, alignment=TA_CENTER, fontSize=7.5),
+        ))
+
+        doc.build(elements)
+        buffer.seek(0)
+
+        filename = f"SecureBank_Statement_{acct_num}_{datetime.now().strftime('%Y%m%d')}.pdf"
+
+        return Response(
+            buffer.getvalue(),
+            mimetype='application/pdf',
+            headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+        )
+
+    except Error as e:
+        flash(f'Error generating PDF: {str(e)}', 'error')
+        if conn:
+            conn.close()
+        return redirect(url_for('statement', account_id=account_id))
 
 
 @app.route('/logout')

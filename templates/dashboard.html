@@ -100,10 +100,8 @@
                     <div class="balance-label">Available Balance</div>
                     <div class="balance-amount">₹{{ "%.2f"|format(account.balance) }}</div>
                     <div style="display:flex;gap:8px;">
-                        <a href="{{ url_for('history', account_id=account.account_id) }}"
-                            class="btn btn-secondary btn-sm">History</a>
                         <a href="{{ url_for('statement', account_id=account.account_id) }}"
-                            class="btn btn-outline btn-sm">Statement</a>
+                            class="btn btn-secondary btn-sm">View Statement</a>
                     </div>
                 </div>
             </div>
