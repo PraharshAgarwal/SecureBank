@@ -13,12 +13,15 @@ from functools import wraps
 import os
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from config import DB_CONFIG, SECRET_KEY
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.permanent_session_lifetime = timedelta(minutes=30)
+
+# Indian Standard Time (UTC+5:30)
+IST = timezone(timedelta(hours=5, minutes=30))
 
 # DB_CONFIG imported from config.py
 
@@ -142,7 +145,10 @@ def login():
                 cursor.execute(activity_query, (last_email,))
                 activity = cursor.fetchone()
                 if activity:
-                    last_login = activity["login_timestamp"]
+                    ts = activity["login_timestamp"]
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    last_login = ts.astimezone(IST)
                     last_device = activity["device_info"]
             except Error:
                 pass
@@ -170,7 +176,7 @@ def login():
             cursor.execute(query, (email,))
             user = cursor.fetchone()
             
-            if user and check_password_hash(user['password_hash'], password):
+            if user and user['password_hash'] and check_password_hash(str(user['password_hash']), str(password)):
                 # Login successful - record login activity
                 device_info = request.headers.get('User-Agent', 'Unknown device')
                 ip_address = request.remote_addr
@@ -271,7 +277,8 @@ def signup():
                 """,
                 (email, password_hash, full_name, phone or None),
             )
-            customer_id = cursor.fetchone()['customer_id']
+            row = cursor.fetchone()
+            customer_id = row['customer_id'] if row else None
 
             # Auto-create a savings account
             account_number = ''.join(str(random.randint(0, 9)) for _ in range(12))
@@ -362,7 +369,10 @@ def dashboard():
         
         last_login = None
         if last_login_data and last_login_data['login_timestamp']:
-            last_login = last_login_data['login_timestamp'].strftime('%d %b %Y at %I:%M %p')
+            ts = last_login_data['login_timestamp']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            last_login = ts.astimezone(IST).strftime('%d %b %Y at %I:%M %p')
         
         cursor.close()
         conn.close()
@@ -420,6 +430,7 @@ def transfer():
             beneficiary_name = request.form.get('beneficiary_name')
             bank_name = request.form.get('bank_name')
             ifsc = request.form.get('ifsc')
+            category = request.form.get('category', 'General')
             
             # Validation
             if not all([from_account_id, to_account_number, amount, beneficiary_name, bank_name, ifsc]):
@@ -427,8 +438,8 @@ def transfer():
                 return render_template('transfer.html', accounts=user_accounts, other_accounts=other_accounts)
             
             try:
-                amount = float(amount)
-                from_account_id = int(from_account_id)
+                amount = float(amount or 0)
+                from_account_id = int(from_account_id or 0)
                 
                 if amount <= 0:
                     flash('Amount must be greater than zero.', 'error')
@@ -460,21 +471,21 @@ def transfer():
                 cursor = conn.cursor()
                 # Call stored function (PostgreSQL functions return records)
                 cursor.execute(
-                    "SELECT * FROM TransferFunds(%s, %s, %s)",
-                    (from_account_id, to_account_id, amount)
+                    "SELECT * FROM TransferFunds(%s, %s, %s, %s)",
+                    (from_account_id, to_account_id, amount, category)
                 )
                 result = cursor.fetchone()
                 
                 # Get output parameters
-                status = result[0]  # p_status
-                message = result[1]  # p_message
+                status = result[0] if result else None  # p_status
+                message = result[1] if result else None  # p_message
                 
                 if status == 'Success':
                     conn.commit()  # Commit the transaction
-                    flash(message, 'success')
+                    flash(str(message or 'Transfer completed'), 'success')
                 else:
                     conn.rollback()  # Rollback on failure
-                    flash(message, 'error')
+                    flash(str(message or 'Transfer failed'), 'error')
                 
                 cursor.close()
                 conn.close()
@@ -606,15 +617,61 @@ def statement(account_id):
         )
         account_info = cursor.fetchone()
 
-        # Call cursor-based stored function
-        cursor.execute(
-            "SELECT * FROM GetPaginatedStatement(%s, %s, %s)",
-            (account_id, page, 10),
-        )
-        transactions = cursor.fetchall()
+        # Get available months for this account
+        cursor.execute("""
+            SELECT DISTINCT
+                EXTRACT(YEAR FROM transaction_timestamp)::INT AS yr,
+                EXTRACT(MONTH FROM transaction_timestamp)::INT AS mo,
+                TO_CHAR(transaction_timestamp, 'Mon YYYY') AS label
+            FROM TransactionHistory
+            WHERE (from_account_id = %s OR to_account_id = %s)
+              AND status = 'Success'
+            ORDER BY yr DESC, mo DESC
+        """, (account_id, account_id))
+        available_months = cursor.fetchall()
 
-        total_records = transactions[0]['total_records'] if transactions else 0
-        total_pages = transactions[0]['total_pages'] if transactions else 0
+        # Get filter params (optional — if not provided, show all)
+        filter_year = request.args.get('year', type=int)
+        filter_month = request.args.get('month', type=int)
+
+        # Call cursor-based stored function (fetches all, we filter afterward)
+        # Use a large page size to get all transactions when filtering
+        if filter_year and filter_month:
+            # Fetch all transactions for filtering
+            cursor.execute(
+                "SELECT * FROM GetPaginatedStatement(%s, %s, %s)",
+                (account_id, 1, 10000),
+            )
+            all_transactions = cursor.fetchall()
+
+            # Filter by selected month/year
+            filtered = [
+                t for t in all_transactions
+                if t['transaction_date'] and
+                   t['transaction_date'].year == filter_year and
+                   t['transaction_date'].month == filter_month
+            ]
+
+            # Manual pagination on filtered results
+            per_page = 10
+            total_records = len(filtered)
+            total_pages = max(1, -(-total_records // per_page))  # ceil division
+            start = (page - 1) * per_page
+            transactions = list(filtered[start:start + per_page])  # type: ignore
+
+            # Re-number rows
+            for i, t in enumerate(transactions):
+                t['row_num'] = start + i + 1
+                t['total_records'] = total_records
+                t['total_pages'] = total_pages
+        else:
+            cursor.execute(
+                "SELECT * FROM GetPaginatedStatement(%s, %s, %s)",
+                (account_id, page, 10),
+            )
+            transactions = cursor.fetchall()
+            total_records = transactions[0]['total_records'] if transactions else 0
+            total_pages = transactions[0]['total_pages'] if transactions else 0
 
         cursor.close()
         conn.close()
@@ -626,9 +683,154 @@ def statement(account_id):
             page=page,
             total_pages=total_pages,
             total_records=total_records,
+            available_months=available_months,
+            filter_year=filter_year,
+            filter_month=filter_month,
         )
     except Error as e:
         flash(f'Error loading statement: {str(e)}', 'error')
+        if conn:
+            conn.close()
+        return redirect(url_for('dashboard'))
+
+
+@app.route('/analytics')
+@login_required
+def analytics():
+    """Transaction Analytics — Demonstrates: GROUP BY, Aggregate Functions, JOINs"""
+    conn = get_db_connection()
+    if not conn:
+        flash('Database connection error.', 'error')
+        return redirect(url_for('dashboard'))
+
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Get user's account IDs
+        cursor.execute(
+            "SELECT account_id FROM Accounts WHERE customer_id = %s",
+            (session['user_id'],),
+        )
+        user_accounts = [r['account_id'] for r in cursor.fetchall()]
+
+        if not user_accounts:
+            cursor.close()
+            conn.close()
+            now = datetime.now()
+            return render_template('analytics.html', chart_data=[], credit_chart_data=[], monthly_totals=[], all_time_data=[], available_months=[], available_years=[], summary_year=now.year)
+
+        placeholders = ','.join(['%s'] * len(user_accounts))
+
+        # Get available months from transaction history
+        cursor.execute(f"""
+            SELECT DISTINCT
+                EXTRACT(YEAR FROM transaction_timestamp)::INT AS yr,
+                EXTRACT(MONTH FROM transaction_timestamp)::INT AS mo,
+                TO_CHAR(transaction_timestamp, 'Mon YYYY') AS label
+            FROM TransactionHistory
+            WHERE (from_account_id IN ({placeholders}) OR to_account_id IN ({placeholders}))
+              AND status = 'Success'
+            ORDER BY yr DESC, mo DESC
+        """, tuple(user_accounts) * 2)
+        available_months = cursor.fetchall()
+
+        # Determine selected month/year from query params
+        now = datetime.now()
+        sel_year = request.args.get('year', now.year, type=int)
+        sel_month = request.args.get('month', now.month, type=int)
+
+        # Category-wise spending (debits only) for selected month
+        cursor.execute(f"""
+            SELECT
+                COALESCE(category, 'General') AS category,
+                SUM(amount) AS total,
+                COUNT(*) AS txn_count
+            FROM TransactionHistory
+            WHERE from_account_id IN ({placeholders})
+              AND status = 'Success'
+              AND EXTRACT(YEAR FROM transaction_timestamp) = %s
+              AND EXTRACT(MONTH FROM transaction_timestamp) = %s
+            GROUP BY COALESCE(category, 'General')
+            ORDER BY total DESC
+        """, tuple(user_accounts) + (sel_year, sel_month))
+        chart_data = cursor.fetchall()
+
+        # Category-wise credits (incoming) for selected month
+        cursor.execute(f"""
+            SELECT
+                COALESCE(category, 'General') AS category,
+                SUM(amount) AS total,
+                COUNT(*) AS txn_count
+            FROM TransactionHistory
+            WHERE to_account_id IN ({placeholders})
+              AND status = 'Success'
+              AND EXTRACT(YEAR FROM transaction_timestamp) = %s
+              AND EXTRACT(MONTH FROM transaction_timestamp) = %s
+            GROUP BY COALESCE(category, 'General')
+            ORDER BY total DESC
+        """, tuple(user_accounts) + (sel_year, sel_month))
+        credit_chart_data = cursor.fetchall()
+
+        # Determine selected summary year from query params
+        summary_year = request.args.get('summary_year', now.year, type=int)
+
+        # Get available years for monthly summary dropdown
+        cursor.execute(f"""
+            SELECT DISTINCT EXTRACT(YEAR FROM transaction_timestamp)::INT AS yr
+            FROM TransactionHistory
+            WHERE (from_account_id IN ({placeholders}) OR to_account_id IN ({placeholders}))
+              AND status = 'Success'
+            ORDER BY yr DESC
+        """, tuple(user_accounts) * 2)
+        available_years = [r['yr'] for r in cursor.fetchall()]
+
+        # Monthly totals for selected year
+        cursor.execute(f"""
+            SELECT
+                TO_CHAR(transaction_timestamp, 'Mon YYYY') AS month_label,
+                SUM(CASE WHEN from_account_id IN ({placeholders}) THEN amount ELSE 0 END) AS total_debit,
+                SUM(CASE WHEN to_account_id IN ({placeholders}) THEN amount ELSE 0 END) AS total_credit
+            FROM TransactionHistory
+            WHERE (from_account_id IN ({placeholders}) OR to_account_id IN ({placeholders}))
+              AND status = 'Success'
+              AND EXTRACT(YEAR FROM transaction_timestamp) = %s
+            GROUP BY TO_CHAR(transaction_timestamp, 'Mon YYYY'),
+                     DATE_TRUNC('month', transaction_timestamp)
+            ORDER BY DATE_TRUNC('month', transaction_timestamp) DESC
+        """, tuple(user_accounts) * 4 + (summary_year,))
+        monthly_totals = cursor.fetchall()
+
+        # All-time category breakdown
+        cursor.execute(f"""
+            SELECT
+                COALESCE(category, 'General') AS category,
+                SUM(amount) AS total,
+                COUNT(*) AS txn_count
+            FROM TransactionHistory
+            WHERE (from_account_id IN ({placeholders}) OR to_account_id IN ({placeholders}))
+              AND status = 'Success'
+            GROUP BY COALESCE(category, 'General')
+            ORDER BY total DESC
+        """, tuple(user_accounts) * 2)
+        all_time_data = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        return render_template(
+            'analytics.html',
+            chart_data=chart_data,
+            credit_chart_data=credit_chart_data,
+            monthly_totals=monthly_totals,
+            all_time_data=all_time_data,
+            available_months=available_months,
+            available_years=available_years,
+            sel_year=sel_year,
+            sel_month=sel_month,
+            summary_year=summary_year,
+        )
+    except Error as e:
+        flash(f'Error loading analytics: {str(e)}', 'error')
         if conn:
             conn.close()
         return redirect(url_for('dashboard'))
@@ -681,12 +883,37 @@ def statement_pdf(account_id):
         # All transactions (no pagination for PDF — fetch all)
         cursor.execute(
             "SELECT * FROM GetPaginatedStatement(%s, %s, %s)",
-            (account_id, 1, 1000),
+            (account_id, 1, 10000),
         )
-        transactions = cursor.fetchall()
+        all_transactions = cursor.fetchall()
+
+        # Apply year/month filter if provided
+        filter_year = request.args.get('year', type=int)
+        filter_month = request.args.get('month', type=int)
+
+        if filter_year and filter_month:
+            transactions = [
+                t for t in all_transactions
+                if t['transaction_date'] and
+                   t['transaction_date'].year == filter_year and
+                   t['transaction_date'].month == filter_month
+            ]
+            # Re-number rows
+            for i, t in enumerate(transactions):
+                t['row_num'] = i + 1
+        else:
+            transactions = all_transactions
 
         cursor.close()
         conn.close()
+
+        # Build period label for PDF
+        month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December']
+        if filter_year and filter_month:
+            period_label = f'{month_names[filter_month]} {filter_year}'
+        else:
+            period_label = None
 
         # --- Build PDF ---
         buffer = BytesIO()
@@ -722,7 +949,10 @@ def statement_pdf(account_id):
         )
         elements.append(Paragraph(logo_html, ParagraphStyle(
             'Logo', parent=styles['Normal'], fontSize=24, leading=28, spaceAfter=2)))
-        elements.append(Paragraph('Account Statement', subtitle_style))
+        subtitle_text = 'Account Statement'
+        if period_label:
+            subtitle_text += f' — {period_label}'
+        elements.append(Paragraph(subtitle_text, subtitle_style))
         elements.append(Paragraph(
             f'Generated on {datetime.now().strftime("%d %B %Y, %I:%M %p")}',
             small_style
@@ -741,7 +971,7 @@ def statement_pdf(account_id):
         acct_num = account['account_number'] if account else 'N/A'
         acct_type = account['account_type'] if account else 'N/A'
         ifsc = account['ifsc_code'] if account else 'N/A'
-        branch = account.get('branch_name', 'N/A') or 'N/A'
+        branch = (account.get('branch_name', 'N/A') if account else 'N/A') or 'N/A'
         balance = f"Rs. {account['balance']:,.2f}" if account else 'N/A'
 
         label_s = ParagraphStyle('Lbl', parent=normal_style,
@@ -807,8 +1037,11 @@ def statement_pdf(account_id):
         elements.append(Spacer(1, 4*mm))
 
         # -- Transaction Table --
+        txn_heading = f'Transaction History  ({len(transactions)} records)'
+        if period_label:
+            txn_heading = f'Transaction History — {period_label}  ({len(transactions)} records)'
         elements.append(Paragraph(
-            f'Transaction History  ({len(transactions)} records)',
+            txn_heading,
             heading_style,
         ))
 

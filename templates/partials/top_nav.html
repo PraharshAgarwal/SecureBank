@@ -7,6 +7,8 @@
             class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
         <a href="{{ url_for('transfer') }}"
             class="nav-link {% if request.endpoint == 'transfer' %}active{% endif %}">Transfers</a>
+        <a href="{{ url_for('analytics') }}"
+            class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}">Analytics</a>
         <a href="{{ url_for('profile') }}"
             class="nav-link {% if request.endpoint == 'profile' %}active{% endif %}">Profile</a>
     </div>

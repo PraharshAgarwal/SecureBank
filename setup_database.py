@@ -7,7 +7,6 @@ import psycopg2
 from psycopg2 import Error
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from werkzeug.security import generate_password_hash
-import os
 from config import DB_CONFIG
 
 def setup_database():

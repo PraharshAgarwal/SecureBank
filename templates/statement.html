@@ -14,7 +14,7 @@
         <div class="page-banner-meta">
             <span class="banner-badge">Balance: ₹{{ "%.2f"|format(account.balance) }}</span>
             <span class="banner-badge">IFSC: {{ account.ifsc_code }}</span>
-            <a href="{{ url_for('statement_pdf', account_id=account.account_id) }}" class="banner-badge"
+            <a href="{{ url_for('statement_pdf', account_id=account.account_id, year=filter_year, month=filter_month) }}" class="banner-badge"
                 style="text-decoration:none;cursor:pointer;">
                 Download PDF
             </a>
@@ -23,6 +23,110 @@
 </div>
 
 <div class="page-shell">
+
+    <!-- Period Filter Bar -->
+    {% if available_months %}
+    <div class="card"
+        style="margin-bottom:20px;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:12px;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
+                style="color:var(--primary);">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+            </svg>
+            <span style="font-weight:600;color:var(--text);">Filter by Period</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <select id="stmtYearSelector" class="form-control"
+                style="width:auto;padding:8px 16px;font-size:14px;font-weight:500;border-radius:8px;background:#fff;cursor:pointer;border:1.5px solid var(--border);">
+                <option value="" {{ '' if filter_year else 'selected' }} disabled>Year</option>
+                {% set seen_years = [] %}
+                {% for m in available_months %}
+                {% if m.yr not in seen_years %}
+                {% if seen_years.append(m.yr) %}{% endif %}
+                <option value="{{ m.yr }}" {{ 'selected' if m.yr == filter_year else '' }}>
+                    {{ m.yr }}
+                </option>
+                {% endif %}
+                {% endfor %}
+            </select>
+            <select id="stmtMonthSelector" class="form-control"
+                style="width:auto;padding:8px 16px;font-size:14px;font-weight:500;border-radius:8px;background:#fff;cursor:pointer;border:1.5px solid var(--border);">
+                <option value="" selected disabled>Month</option>
+            </select>
+            {% if filter_year and filter_month %}
+            <a href="{{ url_for('statement', account_id=account.account_id) }}" class="btn btn-secondary btn-sm"
+                style="padding:8px 14px;font-size:13px;border-radius:8px;">Show All</a>
+            {% endif %}
+        </div>
+    </div>
+    <script type="application/json" id="stmtFilterData">
+    {
+        "availableMonths": {{ available_months|tojson }},
+        "filterYear": {{ filter_year|tojson }},
+        "filterMonth": {{ filter_month|tojson }},
+        "accountId": {{ account.account_id }}
+    }
+    </script>
+    <script>
+    (function() {
+        var monthNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var d = JSON.parse(document.getElementById('stmtFilterData').textContent);
+        var availableMonths = d.availableMonths;
+        var filterYear = d.filterYear;
+        var filterMonth = d.filterMonth;
+        var accountId = d.accountId;
+        var yearSel = document.getElementById('stmtYearSelector');
+        var monthSel = document.getElementById('stmtMonthSelector');
+
+        function populateMonths(year) {
+            monthSel.innerHTML = '';
+            if (!year) {
+                var ph = document.createElement('option');
+                ph.value = '';
+                ph.textContent = 'Month';
+                ph.disabled = true;
+                ph.selected = true;
+                monthSel.appendChild(ph);
+                return;
+            }
+            var placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Month';
+            placeholder.disabled = true;
+            if (!filterMonth) placeholder.selected = true;
+            monthSel.appendChild(placeholder);
+
+            var months = availableMonths.filter(function(m) { return m.yr === year; });
+            months.forEach(function(m) {
+                var opt = document.createElement('option');
+                opt.value = m.mo;
+                opt.textContent = monthNames[m.mo];
+                if (filterYear === m.yr && filterMonth === m.mo) opt.selected = true;
+                monthSel.appendChild(opt);
+            });
+        }
+
+        function navigate() {
+            var yr = parseInt(yearSel.value);
+            var mo = parseInt(monthSel.value);
+            if (yr && mo) {
+                window.location.href = '/statement/' + accountId + '?year=' + yr + '&month=' + mo;
+            }
+        }
+
+        yearSel.addEventListener('change', function() {
+            populateMonths(parseInt(this.value));
+        });
+        monthSel.addEventListener('change', navigate);
+
+        if (filterYear) {
+            populateMonths(filterYear);
+        }
+    })();
+    </script>
+    {% endif %}
+
     <!-- Cursor Info Card -->
     <div class="card" style="margin-bottom: 20px;">
         <div class="card-header">
@@ -31,8 +135,12 @@
                 <span class="text-dim" style="font-size:13px;">
                     {% if total_records > 0 %}
                     Showing {{ ((page - 1) * 10) + 1 }}–{{ [page * 10, total_records]|min }} of {{ total_records }}
+                    {% if filter_year and filter_month %}
+                    ({{ filter_month }}/{{ filter_year }})
+                    {% endif %}
                     {% else %}
                     No transactions found
+                    {% if filter_year and filter_month %} for {{ filter_month }}/{{ filter_year }}{% endif %}
                     {% endif %}
                 </span>
             </div>
@@ -85,7 +193,7 @@
         {% if total_pages > 1 %}
         <div class="pagination">
             {% if page > 1 %}
-            <a href="{{ url_for('statement', account_id=account.account_id, page=page-1) }}"
+            <a href="{{ url_for('statement', account_id=account.account_id, page=page-1, year=filter_year, month=filter_month) }}"
                 class="btn btn-secondary btn-sm">← Previous</a>
             {% else %}
             <span class="btn btn-secondary btn-sm" style="opacity:0.4;pointer-events:none;">← Previous</span>
@@ -93,21 +201,22 @@
 
             <div class="pagination-pages">
                 {% for p in range(1, total_pages + 1) %}
-                <a href="{{ url_for('statement', account_id=account.account_id, page=p) }}"
+                <a href="{{ url_for('statement', account_id=account.account_id, page=p, year=filter_year, month=filter_month) }}"
                     class="pagination-page {{ 'pagination-active' if p == page else '' }}">{{ p }}</a>
                 {% endfor %}
             </div>
 
-            {% if page < total_pages %} <a href="{{ url_for('statement', account_id=account.account_id, page=page+1) }}"
+            {% if page < total_pages %}
+            <a href="{{ url_for('statement', account_id=account.account_id, page=page+1, year=filter_year, month=filter_month) }}"
                 class="btn btn-secondary btn-sm">Next →</a>
-                {% else %}
-                <span class="btn btn-secondary btn-sm" style="opacity:0.4;pointer-events:none;">Next →</span>
-                {% endif %}
+            {% else %}
+            <span class="btn btn-secondary btn-sm" style="opacity:0.4;pointer-events:none;">Next →</span>
+            {% endif %}
         </div>
         {% endif %}
 
         {% else %}
-        <div class="empty-state">No transactions yet for this account.</div>
+        <div class="empty-state">No transactions found{% if filter_year and filter_month %} for this period{% endif %}.</div>
         {% endif %}
     </div>
 
