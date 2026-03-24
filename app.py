@@ -185,7 +185,7 @@ def statement(account_id):
         flash(f'Error loading statement: {str(e)}', 'error')
         if conn:
             conn.close()
-        return redirect(url_for('dashboard'))n
+        return redirect(url_for('dashboard'))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
