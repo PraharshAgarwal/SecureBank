@@ -322,7 +322,7 @@
                     <td style="text-align:right;color:var(--success);">₹{{ "%.2f"|format(m.total_credit|float) }}</td>
                     {% set net = m.total_credit|float - m.total_debit|float %}
                     <td class="net-cell {{ 'net-positive' if net >= 0 else 'net-negative' }}">
-                        {{ '+' if net >= 0 else '' }}₹{{ "%.2f"|format(net) }}
+                        {{ '+' if net >= 0 else '−' }}₹{{ "%.2f"|format(net|abs) }}
                     </td>
                 </tr>
                 {% endfor %}

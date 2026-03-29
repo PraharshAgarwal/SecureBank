@@ -2,15 +2,32 @@
     <div class="nav-left">
         <span class="nav-logo"><span>Secure</span>Bank</span>
     </div>
-    <div class="nav-links">
+    <div class="nav-links" id="navLinks">
         <a href="{{ url_for('dashboard') }}"
-            class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
+            class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+            <svg class="nav-link-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Dashboard
+        </a>
         <a href="{{ url_for('transfer') }}"
-            class="nav-link {% if request.endpoint == 'transfer' %}active{% endif %}">Transfers</a>
+            class="nav-link {% if request.endpoint == 'transfer' %}active{% endif %}">
+            <svg class="nav-link-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            Transfers
+        </a>
         <a href="{{ url_for('analytics') }}"
-            class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}">Analytics</a>
+            class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}">
+            <svg class="nav-link-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Analytics
+        </a>
         <a href="{{ url_for('profile') }}"
-            class="nav-link {% if request.endpoint == 'profile' %}active{% endif %}">Profile</a>
+            class="nav-link {% if request.endpoint == 'profile' %}active{% endif %}">
+            <svg class="nav-link-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profile
+        </a>
+        <!-- Mobile-only: logout link inside menu -->
+        <a href="{{ url_for('logout') }}" class="nav-link nav-link-logout-mobile">
+            <svg class="nav-link-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Log out
+        </a>
     </div>
     <div class="nav-right">
         <div class="nav-user">
@@ -19,4 +36,42 @@
         </div>
         <a href="{{ url_for('logout') }}" class="nav-logout">Log out</a>
     </div>
+    <!-- Hamburger button (mobile only) -->
+    <button class="nav-hamburger" id="navHamburger" aria-label="Toggle navigation">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+    </button>
 </nav>
+<!-- Mobile menu overlay -->
+<div class="nav-overlay" id="navOverlay"></div>
+
+<script>
+(function() {
+    const hamburger = document.getElementById('navHamburger');
+    const navLinks = document.getElementById('navLinks');
+    const overlay = document.getElementById('navOverlay');
+
+    function toggleMenu() {
+        const isOpen = navLinks.classList.toggle('mobile-open');
+        hamburger.classList.toggle('is-active', isOpen);
+        overlay.classList.toggle('is-visible', isOpen);
+        document.body.style.overflow = isOpen ? 'hidden' : '';
+    }
+
+    function closeMenu() {
+        navLinks.classList.remove('mobile-open');
+        hamburger.classList.remove('is-active');
+        overlay.classList.remove('is-visible');
+        document.body.style.overflow = '';
+    }
+
+    hamburger.addEventListener('click', toggleMenu);
+    overlay.addEventListener('click', closeMenu);
+
+    // Close on resize if switching to desktop
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) closeMenu();
+    });
+})();
+</script>

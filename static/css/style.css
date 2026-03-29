@@ -1565,6 +1565,68 @@ select.form-control {
 }
 
 /* ============================================================
+   Hamburger Button (hidden on desktop)
+   ============================================================ */
+.nav-hamburger {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition);
+    z-index: 1100;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 38px;
+    height: 38px;
+}
+
+.nav-hamburger:hover {
+    background: var(--bg);
+}
+
+.hamburger-line {
+    display: block;
+    width: 20px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--text);
+    transition: all .3s cubic-bezier(.4, 0, .2, 1);
+    transform-origin: center;
+}
+
+.nav-hamburger.is-active .hamburger-line:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.nav-hamburger.is-active .hamburger-line:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+}
+
+.nav-hamburger.is-active .hamburger-line:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Mobile overlay (hidden on desktop) */
+.nav-overlay {
+    display: none;
+}
+
+/* Nav-link icons (hidden on desktop) */
+.nav-link-icon {
+    display: none;
+}
+
+/* Mobile logout in menu (hidden on desktop) */
+.nav-link-logout-mobile {
+    display: none !important;
+}
+
+/* ============================================================
    Responsive
    ============================================================ */
 @media (max-width: 768px) {
@@ -1582,13 +1644,114 @@ select.form-control {
 
     .navbar {
         padding: 0 16px;
-        height: 52px;
+        height: 56px;
     }
 
-    .nav-links {
+    /* Show hamburger on mobile */
+    .nav-hamburger {
+        display: flex;
+    }
+
+    /* Hide desktop user section on mobile */
+    .nav-right {
         display: none;
     }
 
+    /* Nav links become a slide-in side panel */
+    .nav-links {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 280px;
+        max-width: 80vw;
+        height: 100vh;
+        height: 100dvh;
+        background: var(--surface);
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        padding: 80px 20px 32px;
+        box-shadow: -8px 0 30px rgba(0, 0, 0, .1);
+        z-index: 1050;
+        transition: right .35s cubic-bezier(.4, 0, .2, 1);
+        overflow-y: auto;
+    }
+
+    .nav-links.mobile-open {
+        right: 0;
+    }
+
+    /* Show nav-link icons on mobile */
+    .nav-link-icon {
+        display: block;
+        flex-shrink: 0;
+    }
+
+    /* Style nav links in sidebar */
+    .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-radius: var(--radius);
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-sec);
+        border: none;
+        transition: all var(--transition);
+    }
+
+    .nav-link:hover {
+        background: var(--bg);
+        color: var(--text);
+    }
+
+    .nav-link.active {
+        background: var(--primary-light);
+        color: var(--primary);
+        font-weight: 600;
+    }
+
+    .nav-link.active::after {
+        display: none;
+    }
+
+    /* Show mobile logout link inside menu */
+    .nav-link-logout-mobile {
+        display: flex !important;
+        margin-top: 12px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border-light);
+        color: var(--error) !important;
+    }
+
+    .nav-link-logout-mobile:hover {
+        background: var(--error-bg);
+        color: var(--error) !important;
+    }
+
+    /* Overlay backdrop */
+    .nav-overlay {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, .35);
+        z-index: 1040;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .3s ease;
+        backdrop-filter: blur(2px);
+    }
+
+    .nav-overlay.is-visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Auth pages */
     .auth-card {
         padding: 32px 24px;
     }
@@ -1668,4 +1831,11 @@ select.form-control {
         height: 42px;
         font-size: 16px;
     }
-}
+
+    /* Data tables scroll horizontally */
+    .data-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
