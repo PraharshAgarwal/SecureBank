@@ -1565,6 +1565,15 @@ select.form-control {
 }
 
 /* ============================================================
+   Desktop Nav Links
+   ============================================================ */
+.nav-links-desktop {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ============================================================
    Hamburger Button (hidden on desktop)
    ============================================================ */
 .nav-hamburger {
@@ -1575,7 +1584,8 @@ select.form-control {
     padding: 6px;
     border-radius: var(--radius-sm);
     transition: background var(--transition);
-    z-index: 1100;
+    position: relative;
+    z-index: 9999;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -1611,19 +1621,14 @@ select.form-control {
     transform: translateY(-7px) rotate(-45deg);
 }
 
-/* Mobile overlay (hidden on desktop) */
+/* Mobile overlay — hidden on desktop */
 .nav-overlay {
     display: none;
 }
 
-/* Nav-link icons (hidden on desktop) */
-.nav-link-icon {
+/* Mobile slide-in panel — hidden on desktop */
+.nav-mobile-panel {
     display: none;
-}
-
-/* Mobile logout in menu (hidden on desktop) */
-.nav-link-logout-mobile {
-    display: none !important;
 }
 
 /* ============================================================
@@ -1652,85 +1657,16 @@ select.form-control {
         display: flex;
     }
 
-    /* Hide desktop user section on mobile */
+    /* Hide desktop nav links and user section on mobile */
+    .nav-links-desktop {
+        display: none;
+    }
+
     .nav-right {
         display: none;
     }
 
-    /* Nav links become a slide-in side panel */
-    .nav-links {
-        position: fixed;
-        top: 0;
-        right: -100%;
-        width: 280px;
-        max-width: 80vw;
-        height: 100vh;
-        height: 100dvh;
-        background: var(--surface);
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0;
-        padding: 80px 20px 32px;
-        box-shadow: -8px 0 30px rgba(0, 0, 0, .1);
-        z-index: 1050;
-        transition: right .35s cubic-bezier(.4, 0, .2, 1);
-        overflow-y: auto;
-    }
-
-    .nav-links.mobile-open {
-        right: 0;
-    }
-
-    /* Show nav-link icons on mobile */
-    .nav-link-icon {
-        display: block;
-        flex-shrink: 0;
-    }
-
-    /* Style nav links in sidebar */
-    .nav-link {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 14px 16px;
-        border-radius: var(--radius);
-        font-size: 15px;
-        font-weight: 500;
-        color: var(--text-sec);
-        border: none;
-        transition: all var(--transition);
-    }
-
-    .nav-link:hover {
-        background: var(--bg);
-        color: var(--text);
-    }
-
-    .nav-link.active {
-        background: var(--primary-light);
-        color: var(--primary);
-        font-weight: 600;
-    }
-
-    .nav-link.active::after {
-        display: none;
-    }
-
-    /* Show mobile logout link inside menu */
-    .nav-link-logout-mobile {
-        display: flex !important;
-        margin-top: 12px;
-        padding-top: 14px;
-        border-top: 1px solid var(--border-light);
-        color: var(--error) !important;
-    }
-
-    .nav-link-logout-mobile:hover {
-        background: var(--error-bg);
-        color: var(--error) !important;
-    }
-
-    /* Overlay backdrop */
+    /* Overlay backdrop — outside navbar, so z-index works independently */
     .nav-overlay {
         display: block;
         position: fixed;
@@ -1739,16 +1675,78 @@ select.form-control {
         width: 100%;
         height: 100%;
         background: rgba(0, 0, 0, .35);
-        z-index: 1040;
+        z-index: 9990;
         opacity: 0;
         pointer-events: none;
         transition: opacity .3s ease;
-        backdrop-filter: blur(2px);
     }
 
     .nav-overlay.is-visible {
         opacity: 1;
         pointer-events: auto;
+    }
+
+    /* Mobile slide-in panel — outside navbar, higher z-index than overlay */
+    .nav-mobile-panel {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 280px;
+        max-width: 80vw;
+        height: 100vh;
+        height: 100dvh;
+        background: var(--surface);
+        padding: 80px 20px 32px;
+        box-shadow: -8px 0 30px rgba(0, 0, 0, .12);
+        z-index: 9995;
+        transition: right .35s cubic-bezier(.4, 0, .2, 1);
+        overflow-y: auto;
+    }
+
+    .nav-mobile-panel.is-open {
+        right: 0;
+    }
+
+    /* Mobile nav links */
+    .nav-mobile-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-radius: var(--radius);
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-sec);
+        text-decoration: none;
+        transition: all var(--transition);
+    }
+
+    .nav-mobile-link:hover {
+        background: var(--bg);
+        color: var(--text);
+    }
+
+    .nav-mobile-link.active {
+        background: var(--primary-light);
+        color: var(--primary);
+        font-weight: 600;
+    }
+
+    .nav-mobile-divider {
+        height: 1px;
+        background: var(--border-light);
+        margin: 12px 0;
+    }
+
+    .nav-mobile-logout {
+        color: var(--error) !important;
+    }
+
+    .nav-mobile-logout:hover {
+        background: var(--error-bg) !important;
+        color: var(--error) !important;
     }
 
     /* Auth pages */
@@ -1838,4 +1836,5 @@ select.form-control {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }
-}
+}
+
