@@ -1,263 +1,131 @@
-# SecureBank - Database Management Systems Project (BCSE302L)
+# SecureBank - Full-Stack Banking Platform
 
-A complete web application demonstrating core database concepts including JOIN operations, ACID transactions, stored procedures, indexing, and triggers.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7?style=for-the-badge&logo=render)](https://securebank-ssp4.onrender.com/)
+
+A complete full-stack banking platform demonstrating advanced database management, secure backend engineering, and mobile integration. It features a responsive web interface, a robust REST API, and a seamlessly connected native Android application.
 
 ## 🎯 Project Overview
 
-SecureBank is a banking web application designed to showcase various database management concepts required for BCSE302L course evaluation. The application demonstrates:
+SecureBank is a comprehensive personal project built to showcase scalable architecture and core database principles. The application ecosystem is powered by a Flask backend and a PostgreSQL database, which serves both a dynamic web frontend and a Java-based native Android app.
 
-- **Relational Modeling**: JOIN operations between Customers and Accounts
-- **ACID Transactions**: Atomic fund transfers with rollback capability
-- **Stored Procedures**: Database-side transaction processing
-- **Concurrency Control**: Row-level locking (SELECT ... FOR UPDATE)
-- **Indexing**: B+ Tree indexes for fast data retrieval
-- **Database Triggers**: Automatic audit logging
-- **Normalization**: BCNF compliant database schema
+The database architecture highlights:
+* **Relational Modeling:** Efficient `JOIN` operations across normalized tables (BCNF compliant).
+* **ACID Transactions:** Atomic fund transfers with automatic exception handling and rollback capabilities.
+* **Stored Procedures:** Database-side transaction processing for enhanced security and speed.
+* **Concurrency Control:** Row-level locking (`SELECT ... FOR UPDATE`) to prevent race conditions during concurrent transfers.
+* **Indexing:** B+ Tree indexes for rapid data retrieval across large transaction histories.
+* **Database Triggers:** Automated, application-independent audit logging for security compliance.
+* **Normalization:** BCNF-compliant database schema to eliminate data redundancy.
 
-## 📋 Prerequisites
+## 🌐 Live Demo & Deployment
 
-- Python 3.8 or higher
-- PostgreSQL 12 or higher
-- pip (Python package manager)
+The web application and REST APIs are deployed and hosted live on Render.
+* **Access the Web App:** [SecureBank](https://securebank-ssp4.onrender.com/)
+* **Demo Credentials:**
+    * **Email:** `john.doe@email.com`
+    * **Password:** `SecureBank@123`
 
-## 🚀 Installation & Setup
+## 📱 Android Native App (Java)
 
-### Step 1: Install Python Dependencies
+SecureBank includes a native Android application built with Java. The mobile app connects to the deployed Flask backend via a dedicated set of RESTful JSON APIs, providing a secure, real-time banking experience on the go.
 
+### 📥 Getting the App
+* **Download APK:** [Download SecureBank.apk](https://github.com/PraharshAgarwal/SecureBank-App/releases/download/v1.0.0/SecureBankv1.apk)
+* **Run via Android Studio:** [Github Repository](https://github.com/PraharshAgarwal/SecureBank-App.git)
+    1.  Open the Android project folder in Android Studio.
+    2.  Sync the project with Gradle files.
+    3.  Locate your API configuration file (e.g., `ApiClient.java` or `Constants.java`) and update the Base URL to point to the live server:
+
+        ```java
+        public static final String BASE_URL = "YOUR_RENDER_URL_HERE/api/";
+        ```
+    5.  Build and run on an emulator or physical Android device.
+
+### 🔋 Mobile Features
+* Secure authentication via session-based API endpoints.
+* Real-time dashboard with consolidated account balances.
+* Native UI for executing ACID-compliant fund transfers.
+* Interactive transaction history and dynamic account statements.
+
+### 🔌 REST API Endpoints (Mobile Integration)
+The backend exposes the following JSON endpoints specifically for the Android client:
+* `POST /api/login` & `POST /api/signup`: Authentication and registration.
+* `GET /api/dashboard`: Retrieves the user's accounts and total balance.
+* `GET /api/profile`: Fetches detailed customer and linked account information.
+* `GET /api/transfer` & `POST /api/transfer`: Validates and executes secure fund transfers.
+* `GET /api/statement/<account_id>`: Cursor-based paginated transaction history.
+* `GET /api/analytics`: Fetches categorical spending/receiving data for native charts.
+
+## 💻 Web Application Features
+
+1.  **Secure Authentication (`/login`)**: User authentication demonstrating secure `SELECT` queries and hashed password validation using `werkzeug.security`.
+2.  **Dashboard (`/dashboard`)**: Displays user accounts and balances using multi-table `INNER JOIN` operations.
+3.  **Transfer Funds (`/transfer`)**: Executes atomic fund transfers using a PostgreSQL Stored Procedure, demonstrating strict Isolation (Row-level locking) and Durability.
+4.  **Transaction History (`/statement`)**: Displays chronological transactions using B+ Tree indexed queries and PL/pgSQL cursors for highly efficient data pagination.
+5.  **Analytics (`/analytics`)**: Transaction breakdowns using `GROUP BY`, aggregate functions, and dynamic charting using Chart.js.
+
+## 🗄️ Database Schema Details
+
+### Core Tables
+1.  **Customers:** `customer_id`, `email`, `password_hash`, `full_name`, `phone`, `created_at`.
+2.  **Accounts:** `account_id`, `customer_id`, `account_type`, `balance`, `ifsc_code`, `account_number`, `branch_name`.
+3.  **TransactionHistory:** `transaction_id`, `from_account_id`, `to_account_id`, `transaction_type`, `amount`, `status`, `transaction_timestamp`.
+4.  **AuditLog:** `log_id`, `action_type`, `user_id`, `account_id`, `details`, `log_timestamp`.
+5.  **LoginActivity:** Tracks user logins, IP addresses, and device info for security audits.
+
+### Advanced Database Objects
+* **Stored Procedures (`TransferFunds`)**: Implements complex business logic directly in the database, ensuring data integrity even if the application layer fails.
+* **Triggers**: `audit_transfer_access` and `audit_balance_update` for automated compliance logging.
+* **Materialized Views**: Pre-computed monthly aggregates (`mv_monthly_transaction_summary`) for lightning-fast analytics rendering.
+* **Cursor Functions**: `GetPaginatedStatement` utilizing PL/pgSQL cursors (`DECLARE`, `OPEN`, `FETCH`, `MOVE`) for fast offset pagination.
+
+## 🚀 Local Installation & Setup
+
+### Prerequisites
+* Python 3.8+
+* PostgreSQL 12+
+* pip (Python package manager)
+
+### Step 1: Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
 ### Step 2: Configure Database
+Update the database credentials in config.py to match your local PostgreSQL setup:
 
-1. Make sure PostgreSQL is running on your system
-2. Update database credentials in `config.py`:
-   ```python
-   DB_CONFIG = {
-       'host': 'localhost',
-       'user': 'postgres',  # Change if needed (default PostgreSQL user)
-       'password': '',  # Enter your PostgreSQL password
-       'database': 'securebank',
-       'port': 5432  # Default PostgreSQL port
-   }
-   ```
+```Python
+DB_CONFIG = {
+    'host': 'localhost',
+    'user': 'postgres',  
+    'password': 'your_password',  
+    'database': 'securebank',
+    'port': 5432  
+}
+```
 
 ### Step 3: Initialize Database
+Run the setup script to create the database, tables, stored procedures, and triggers, and to seed the demo users:
 
-Run the setup script to create the database, tables, stored procedures, and triggers:
-
-```bash
+```Bash
 python setup_database.py
 ```
 
-This script will:
-- Create the `securebank` database
-- Create all tables (Customers, Accounts, TransactionHistory, AuditLog)
-- Insert sample data
-- Create stored procedures for fund transfers
-- Create triggers for audit logging
-- Set up demo user accounts with proper password hashing
-
 ### Step 4: Run the Application
-
-```bash
+```Bash
 python app.py
 ```
+The web application and backend REST API will start on http://localhost:5001.
 
-The application will start on `http://localhost:5001`
 
-## 🔐 Demo Credentials
+## 🔧 Troubleshooting (Local Setup)
+* **Database Connection Error**: Verify PostgreSQL is running (psql -U postgres), check credentials in config.py, and ensure the database exists.
+* **Stored Function Not Found**: Run setup_database.py again or manually execute the SQL scripts in PostgreSQL.
 
-- **Email**: `john.doe@email.com`
-- **Password**: `SecureBank@123`
 
-Additional test accounts:
-- `jane.smith@email.com` / `SecureBank@123`
-- `bob.wilson@email.com` / `SecureBank@123`
-
-## 📱 Application Pages
-
-### 1. Login Page (`/login`)
-- **Purpose**: User authentication
-- **Database Feature**: SELECT query with WHERE clause
-- **Demonstrates**: Security & Access Control
-
-### 2. Dashboard (`/dashboard`)
-- **Purpose**: Display user accounts and balances
-- **Database Feature**: INNER JOIN (Customers ↔ Accounts)
-- **Demonstrates**: Relational Modeling, JOIN operations
-- **Features**:
-  - Shows all accounts for logged-in user
-  - Account cards with balance display
-  - Quick links to transfer and history pages
-
-### 3. Transfer Funds (`/transfer`)
-- **Purpose**: Execute fund transfers between accounts
-- **Database Feature**: Stored Procedure with ACID transaction
-- **Demonstrates**:
-  - **Atomicity**: All changes succeed or all rollback
-  - **Consistency**: Database remains in valid state
-  - **Isolation**: Row-level locking (SELECT ... FOR UPDATE)
-  - **Durability**: Committed changes are permanent
-- **Features**:
-  - Form validation
-  - Balance checking
-  - Automatic rollback on failure
-  - Success/failure feedback
-
-### 4. Transaction History (`/history/<account_id>`)
-- **Purpose**: Display transaction history for an account
-- **Database Feature**: Indexed queries on timestamp
-- **Demonstrates**: B+ Tree Indexing for fast retrieval
-- **Features**:
-  - Chronological transaction list
-  - Color-coded amounts (green for deposits, red for withdrawals)
-  - Status indicators
-  - Fast query performance using indexed columns
-
-## 🗄️ Database Schema
-
-### Tables
-
-1. **Customers**
-   - `customer_id` (PRIMARY KEY)
-   - `email` (UNIQUE, INDEXED)
-   - `password_hash`
-   - `full_name`
-   - `created_at`
-
-2. **Accounts**
-   - `account_id` (PRIMARY KEY)
-   - `customer_id` (FOREIGN KEY → Customers)
-   - `account_type`
-   - `balance`
-   - `created_at`
-   - Index on `customer_id` for JOIN operations
-
-3. **TransactionHistory**
-   - `transaction_id` (PRIMARY KEY)
-   - `from_account_id` (FOREIGN KEY → Accounts)
-   - `to_account_id` (FOREIGN KEY → Accounts)
-   - `transaction_type`
-   - `amount`
-   - `status`
-   - `transaction_timestamp` (INDEXED - B+ Tree)
-   - Multiple indexes for fast retrieval
-
-4. **AuditLog**
-   - `log_id` (PRIMARY KEY)
-   - `action_type`
-   - `user_id`
-   - `account_id`
-   - `details`
-   - `log_timestamp` (INDEXED)
-
-### Stored Procedures
-
-- **TransferFunds**: Implements ACID transaction with:
-  - Row-level locking (SELECT ... FOR UPDATE)
-  - Balance validation
-  - Automatic rollback on error (via exception handling)
-  - Transaction logging
-
-### Triggers
-
-- **audit_transfer_access**: Logs every transfer transaction
-- **audit_balance_update**: Logs balance changes
-
-## 📊 Database Concepts Demonstrated
-
-| Page/Feature | Database Concept | SQL Implementation |
-|-------------|-----------------|-------------------|
-| Login | Security & Access | `SELECT ... WHERE email = ?` |
-| Dashboard | Relational Modeling | `INNER JOIN Customers ON Accounts` |
-| Transfer | ACID Transaction | `START TRANSACTION`, `COMMIT`, `ROLLBACK` |
-| Transfer | Concurrency Control | `SELECT ... FOR UPDATE` (Row locking) |
-| Transfer | Stored Function | `CREATE FUNCTION TransferFunds` (PostgreSQL) |
-| History | Physical Design | `INDEX idx_timestamp` (B+ Tree) |
-| All Pages | Normalization | Schema in BCNF (No redundancy) |
-| Triggers | Database Triggers | `CREATE TRIGGER audit_*` |
-
-## 🎨 UI Features
-
-- Modern, clean design with gradient background
-- Responsive layout (mobile-friendly)
-- Flash messages for user feedback
-- Color-coded transaction amounts
-- Smooth animations and transitions
-- Professional banking interface
-
-## 🔧 Troubleshooting
-
-### Database Connection Error
-- Verify PostgreSQL is running: `psql -U postgres`
-- Check credentials in `config.py`
-- Ensure database exists: `psql -U postgres -l`
-
-### Stored Function Not Found
-- Run `setup_database.py` again
-- Manually execute `stored_procedures.sql` in PostgreSQL: `psql -U postgres -d securebank -f stored_procedures.sql`
-
-### Password Authentication Fails
-- Run `setup_database.py` to update password hashes
-- Verify you're using the correct demo credentials
-
-## 📝 Project Structure
-
-```
-dbms_project/
-├── app.py                 # Flask application (main file)
-├── config.py              # Database & app configuration
-├── setup_database.py      # Database initialization script
-├── database_schema.sql    # Database schema and sample data
-├── stored_procedures.sql  # ACID transaction stored function
-├── triggers.sql           # Database triggers for audit logging
-├── demo_queries.sql       # SQL queries for viva demonstration
-├── requirements.txt       # Python dependencies
-├── README.md              # Project documentation
-├── QUICK_START.md         # Quick setup guide
-├── templates/             # HTML templates
-│   ├── partials/
-│   │   └── top_nav.html   # Shared navigation bar
-│   ├── login.html
-│   ├── signup.html
-│   ├── dashboard.html
-│   ├── transfer.html
-│   ├── history.html
-│   └── profile.html
-└── static/
-    └── css/
-        └── style.css      # Stylesheet
-```
-
-## 🎓 For Viva/Evaluation
-
-### Key Points to Highlight:
-
-1. **ACID Properties**: Explain how the transfer procedure ensures atomicity, consistency, isolation, and durability
-2. **Concurrency Control**: Demonstrate row-level locking prevents race conditions
-3. **Indexing**: Show how B+ Tree indexes improve query performance
-4. **Normalization**: Explain how the schema is in BCNF
-5. **Stored Procedures**: Benefits of server-side transaction processing
-6. **Triggers**: Automatic audit logging without application code
-
-### Demo Flow:
-
-1. Login with demo credentials
-2. Show dashboard with JOIN query results
-3. Execute a transfer (show success)
-4. Execute a transfer with insufficient balance (show rollback)
-5. View transaction history (show indexed query performance)
-6. Check audit log in database (show trigger functionality)
-
-## 📄 License
-
-This project is created for educational purposes (BCSE302L course).
-
-## 👨‍💻 Author
-
-Created for BCSE302L Database Management Systems course project.
-
----
-
-**Note**: This is a demonstration project. For production use, implement additional security measures, input validation, and error handling.
+## 🛠️ Tech Stack
+* **Backend:** Python, Flask, RESTful APIs
+* **Database:** PostgreSQL, psycopg2
+* **Frontend (Web):** HTML5, CSS3, JavaScript, Chart.js
+* **Frontend (Mobile):** Java, Android SDK
+* **Security:** Werkzeug Password Hashing, Session Management
